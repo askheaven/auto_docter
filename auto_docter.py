@@ -17,8 +17,11 @@ ENERGY = 3
 END = 4
 RUN = 5
 STONE_ENERGY = 6
+CLOSE = 7
 
-IMG = (START, START2, ENERGY, END, RUN, STONE_ENERGY)
+TIME_OUT = 10
+
+IMG = (START, START2, ENERGY, END, RUN, STONE_ENERGY, CLOSE)
 
 class AutoDocter():
 
@@ -29,8 +32,10 @@ class AutoDocter():
 
 		self.times = 0
 		self.use_item = {"stone":0, "energy":0}
+		self.time_out = 0
 
 	def init_config(self):
+		print("init_config")
 		with open("./config.ini", "r", encoding="utf8") as f:
 			for line in f.readlines():
 				if line.startswith("#"):
@@ -40,13 +45,15 @@ class AutoDocter():
 		self.ip_address = "127.0.0.1:" + str(self.port)
 
 	def init_device(self):
+		print("init_device")
 		try:
 			self.device = u2.connect(self.ip_address)
 		except Exception:
+			self.init_adb_connect()
 			self.device = u2.connect(self.ip_address)
-			# print("init_device_error", Exception)
 
 	def init_img(self):
+		print("init_img")
 		for img in IMG:
 			self.img[img] = {}
 		self.img[START]["img"] = cv2.imread(r'.\img\start.png')
@@ -67,14 +74,18 @@ class AutoDocter():
 		self.img[RUN]["img"] = cv2.imread(r'.\img\run.png')
 		self.img[RUN]["size"] = self.img[RUN]["img"].shape[:2]
 
+		self.img[CLOSE]["img"] = cv2.imread(r'.\img\close.png')
+		self.img[CLOSE]["size"] = self.img[CLOSE]["img"].shape[:2]
+
 	def init_adb_connect(self):
+		print("init_adb_connect")
 		os.system(r'.\adb\adb.exe kill-server ')
 		os.system(r'.\adb\adb.exe start-server ')
 		os.system(r'.\adb\adb.exe connect '+self.ip_address)
 
 	def click(self,x, y):
-		time.sleep(1)
 		self.device.click(x,y)
+		self.time_out = 0
 
 	#找图 返回最近似的点
 	def search_returnPoint(self,img,flag):
@@ -97,18 +108,20 @@ class AutoDocter():
 		return img, point[0]+ template_size[1] /2,float(point[1])
 
 	def run_loop(self):
+		if self.time_out >= TIME_OUT:
+			return "time_out"
 		self.device.screenshot(r".\img\screenshot.png")
-		img_screen = cv2.imread(r'.\img\screenshot.png')
+		self.img_screen = cv2.imread(r'.\img\screenshot.png')
 		if self.status == 0:
-			res_start, x, y = self.search_returnPoint(img_screen, START)
+			res_start, x, y = self.search_returnPoint(self.img_screen, START)
 			if res_start is not None:
 				self.click(x,y)
 				self.status += 1
 
 		elif self.status == 1:
-			res_start2, x1, y1 = self.search_returnPoint(img_screen, START2)
-			res_energy, x2, y2 = self.search_returnPoint(img_screen, ENERGY)
-			res_stone, x3, y3 = self.search_returnPoint(img_screen, STONE_ENERGY)
+			res_start2, x1, y1 = self.search_returnPoint(self.img_screen, START2)
+			res_energy, x2, y2 = self.search_returnPoint(self.img_screen, ENERGY)
+			res_stone, x3, y3 = self.search_returnPoint(self.img_screen, STONE_ENERGY)
 			if res_start2 is not None:
 				self.click(x1,y1)
 				self.status += 1
@@ -130,8 +143,8 @@ class AutoDocter():
 				else:
 					return "energy_out"
 			
-		elif self.status == 2 is not None:
-			res_end, x, y = self.search_returnPoint(img_screen, END)
+		elif self.status == 2:
+			res_end, x, y = self.search_returnPoint(self.img_screen, END)
 			if res_end is not None:
 				time.sleep(2)
 				self.click(x,y)
@@ -144,14 +157,18 @@ class AutoDocter():
 
 	def start(self):
 		self.init_config()
-		self.init_adb_connect()
 		self.init_device()
 		self.init_img()
 		
 		res = ""
+		print("start_loop")
 		while self.limit_times and not res:
 			res = self.run_loop()
 			time.sleep(1)
+			self.time_out += 1
+		res_close, x, y = self.search_returnPoint(self.img_screen, CLOSE)
+		if res_close is not None:
+			self.click(x,y)
 		print(res)
 		print(self.use_item)
 
