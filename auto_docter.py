@@ -22,17 +22,22 @@ IMG = (START, START2, ENERGY, END, RUN, STONE_ENERGY)
 
 class AutoDocter():
 
-	def __init__(self, use_energy=0, use_stone=0, limit_times=-1, port=7555):
+	def __init__(self):
 		self.img = {}
 		self.device = None
 		self.status = 0
 
-		self.use_energy = use_energy
-		self.ip_address = "127.0.0.1:" + str(port)
-		self.limit_times = limit_times
-		self.use_stone = use_stone
 		self.times = 0
 		self.use_item = {"stone":0, "energy":0}
+
+	def init_config(self):
+		with open("./config.ini", "r", encoding="utf8") as f:
+			for line in f.readlines():
+				if line.startswith("#"):
+					continue
+				config = line.strip("\n").split("=")
+				setattr(self, config[0], int(config[1]))
+		self.ip_address = "127.0.0.1:" + str(self.port)
 
 	def init_device(self):
 		try:
@@ -66,17 +71,9 @@ class AutoDocter():
 		os.system(r'.\adb\adb.exe kill-server ')
 		os.system(r'.\adb\adb.exe start-server ')
 		os.system(r'.\adb\adb.exe connect '+self.ip_address)
-		# process = subprocess.Popen(r'.\adb\adb.exe kill-server ', shell=True)
-		# time.sleep(2)
-		# process = subprocess.Popen(r'.\adb\adb.exe start-server ', shell=True)
-		# time.sleep(2)
-		# process = subprocess.Popen(r'.\adb\adb.exe connect '+self.ip_address, shell=True)
-		# time.sleep(2)
-		
 
 	def click(self,x, y):
 		time.sleep(1)
-		# print(self.status, x,y)
 		self.device.click(x,y)
 
 	#找图 返回最近似的点
@@ -146,11 +143,9 @@ class AutoDocter():
 				time.sleep(5)
 
 	def start(self):
+		self.init_config()
 		self.init_adb_connect()
-
 		self.init_device()
-		# while self.device is None:
-		# 	self.init_device()
 		self.init_img()
 		
 		res = ""
@@ -160,28 +155,11 @@ class AutoDocter():
 		print(res)
 		print(self.use_item)
 
-
-class InputTimeoutError(Exception):
-	pass
-
-def interrupted(signum, frame):
-	raise InputTimeoutError
-
 current_path = os.path.abspath(__file__)
 father_path = os.path.abspath(os.path.dirname(current_path) + os.path.sep + ".")
 os.chdir(father_path)
-use_energy=input("是否自动使用体力药(0/1)") or 0
-use_stone=input("是否自动碎石(0/碎石数)")
-limit_times=input("请指定重复刷次数(-1为无限循环)")
-try:
-	limit_times = int(limit_times)
-except:
-	limit_times = -1
-try:
-	use_stone = int(use_stone)
-except:
-	use_stone = 0
-auto_doctor = AutoDocter(use_energy, use_stone, limit_times)
+
+auto_doctor = AutoDocter()
 auto_doctor.start()
 
 
