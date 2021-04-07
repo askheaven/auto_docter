@@ -19,7 +19,7 @@ RUN = 5
 STONE_ENERGY = 6
 CLOSE = 7
 
-TIME_OUT = 10
+TIME_OUT = 100
 
 IMG = (START, START2, ENERGY, END, RUN, STONE_ENERGY, CLOSE)
 
@@ -34,8 +34,13 @@ class AutoDocter():
 		self.use_item = {"stone":0, "energy":0}
 		self.time_out = 0
 
+	def log(self, *args):
+		print(*args)
+		with open("./log.txt", "a", encoding="utf8") as f:
+			f.writelines([str(arg) for arg in args] + ["\n"])
+
 	def init_config(self):
-		print("init_config")
+		self.log("init_config")
 		with open("./config.ini", "r", encoding="utf8") as f:
 			for line in f.readlines():
 				if line.startswith("#"):
@@ -45,7 +50,7 @@ class AutoDocter():
 		self.ip_address = "127.0.0.1:" + str(self.port)
 
 	def init_device(self):
-		print("init_device")
+		self.log("init_device")
 		try:
 			self.device = u2.connect(self.ip_address)
 		except Exception:
@@ -53,7 +58,7 @@ class AutoDocter():
 			self.device = u2.connect(self.ip_address)
 
 	def init_img(self):
-		print("init_img")
+		self.log("init_img")
 		for img in IMG:
 			self.img[img] = {}
 		self.img[START]["img"] = cv2.imread(r'.\img\start.png')
@@ -78,7 +83,7 @@ class AutoDocter():
 		self.img[CLOSE]["size"] = self.img[CLOSE]["img"].shape[:2]
 
 	def init_adb_connect(self):
-		print("init_adb_connect")
+		self.log("init_adb_connect")
 		os.system(r'.\adb\adb.exe kill-server ')
 		os.system(r'.\adb\adb.exe start-server ')
 		os.system(r'.\adb\adb.exe connect '+self.ip_address)
@@ -131,7 +136,7 @@ class AutoDocter():
 					self.status -= 1
 					self.use_stone -= 1
 					self.use_item["stone"] += 1
-					print("use stone")
+					self.log("use stone")
 				else:
 					return "stone_energy_out, {}".format(self.use_stone)
 			elif res_energy is not None:
@@ -139,7 +144,7 @@ class AutoDocter():
 					self.click(x2,y2)
 					self.status -= 1
 					self.use_item["energy"] += 1
-					print("use energy")
+					self.log("use energy")
 				else:
 					return "energy_out"
 			
@@ -151,17 +156,18 @@ class AutoDocter():
 				self.status = 0
 				self.limit_times -= 1
 				self.times += 1
-				print(self.times)
+				self.log(self.times)
 			else:
 				time.sleep(5)
 
 	def start(self):
+		self.log("-"*15+" start "+"-"*15)
 		self.init_config()
 		self.init_device()
 		self.init_img()
 		
 		res = ""
-		print("start_loop")
+		self.log("start_loop")
 		while self.limit_times and not res:
 			res = self.run_loop()
 			time.sleep(1)
@@ -169,8 +175,9 @@ class AutoDocter():
 		res_close, x, y = self.search_returnPoint(self.img_screen, CLOSE)
 		if res_close is not None:
 			self.click(x,y)
-		print(res)
-		print(self.use_item)
+		self.log(res)
+		self.log(self.use_item)
+		self.log("-"*15+" end "+"-"*15)
 
 current_path = os.path.abspath(__file__)
 father_path = os.path.abspath(os.path.dirname(current_path) + os.path.sep + ".")
