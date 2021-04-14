@@ -160,6 +160,12 @@ class AutoDocter():
 			else:
 				time.sleep(5)
 
+	def close(self):
+		res_close, x, y = self.search_returnPoint(self.img_screen, CLOSE)
+		if res_close is not None:
+			self.click(x,y)
+			self.status -= 1
+
 	def start(self):
 		self.log("-"*15+" start "+"-"*15)
 		self.init_config()
@@ -170,11 +176,14 @@ class AutoDocter():
 		self.log("start_loop")
 		while self.limit_times and not res:
 			res = self.run_loop()
+			if res:
+				self.close()
+			if self.forever and res:
+				self.log("forever_wait...")
+				res = ""
+				time.sleep(self.forever_time*60)
 			time.sleep(1)
 			self.time_out += 1
-		res_close, x, y = self.search_returnPoint(self.img_screen, CLOSE)
-		if res_close is not None:
-			self.click(x,y)
 		self.log(res)
 		self.log(self.use_item)
 		self.log("-"*15+" end "+"-"*15)
