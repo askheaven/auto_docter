@@ -8,6 +8,7 @@ import uiautomator2 as u2
 import matplotlib.pyplot as plt
 import subprocess
 import os
+import psutil
 
 from ctypes import *
 
@@ -23,6 +24,15 @@ TIME_OUT = 100
 
 IMG = (START, START2, ENERGY, END, RUN, STONE_ENERGY, CLOSE)
 
+def coast_time(func):
+	def fun(*args, **kwargs):
+		t = time.perf_counter()
+		result = func(*args, **kwargs)
+		print(f'func {func.__name__} coast time:{time.perf_counter() - t:.8f} s')
+		return result
+
+	return fun
+
 class AutoDocter():
 
 	def __init__(self):
@@ -31,7 +41,7 @@ class AutoDocter():
 		self.status = 0
 
 		self.times = 0
-		self.use_item = {"stone":0, "energy":0}
+		self.total = {"stone":0, "energy":0}
 		self.time_out = 0
 
 	def log(self, *args):
@@ -39,18 +49,20 @@ class AutoDocter():
 		with open("./log.txt", "a", encoding="utf8") as f:
 			f.writelines([str(arg) for arg in args] + ["\n"])
 
-	def init_config(self):
-		self.log("init_config")
+	def load_config(self):
+		# self.log("load_config")
 		with open("./config.ini", "r", encoding="utf8") as f:
 			for line in f.readlines():
 				if line.startswith("#"):
 					continue
 				config = line.strip("\n").split("=")
+				if len(config) != 2:
+					continue
 				setattr(self, config[0], int(config[1]))
 		self.ip_address = "127.0.0.1:" + str(self.port)
 
 	def init_device(self):
-		self.log("init_device")
+		print("init_device")
 		try:
 			self.device = u2.connect(self.ip_address)
 		except Exception:
@@ -58,7 +70,7 @@ class AutoDocter():
 			self.device = u2.connect(self.ip_address)
 
 	def init_img(self):
-		self.log("init_img")
+		print("init_img")
 		for img in IMG:
 			self.img[img] = {}
 		self.img[START]["img"] = cv2.imread(r'.\img\start.png')
@@ -83,7 +95,7 @@ class AutoDocter():
 		self.img[CLOSE]["size"] = self.img[CLOSE]["img"].shape[:2]
 
 	def init_adb_connect(self):
-		self.log("init_adb_connect")
+		print("init_adb_connect")
 		os.system(r'.\adb\adb.exe kill-server ')
 		os.system(r'.\adb\adb.exe start-server ')
 		os.system(r'.\adb\adb.exe connect '+self.ip_address)
@@ -112,11 +124,12 @@ class AutoDocter():
 			return None,None,None
 		return img, point[0]+ template_size[1] /2,float(point[1])
 
+	# @coast_time
 	def run_loop(self):
 		if self.time_out >= TIME_OUT:
 			return "time_out"
-		self.device.screenshot(r".\img\screenshot.png")
-		self.img_screen = cv2.imread(r'.\img\screenshot.png')
+		self.load_config()
+		self.img_screen = cv2.imread(self.device.screenshot(r".\img\screenshot.png"))
 		if self.status == 0:
 			res_start, x, y = self.search_returnPoint(self.img_screen, START)
 			if res_start is not None:
@@ -131,11 +144,10 @@ class AutoDocter():
 				self.click(x1,y1)
 				self.status += 1
 			elif res_stone is not None:
-				if self.use_stone:
+				if self.use_stone and self.use_stone > self.total["stone"]:
 					self.click(x2,y2)
 					self.status -= 1
-					self.use_stone -= 1
-					self.use_item["stone"] += 1
+					self.total["stone"] += 1
 					self.log("use stone")
 				else:
 					return "stone_energy_out, {}".format(self.use_stone)
@@ -143,7 +155,7 @@ class AutoDocter():
 				if self.use_energy:
 					self.click(x2,y2)
 					self.status -= 1
-					self.use_item["energy"] += 1
+					self.total["energy"] += 1
 					self.log("use energy")
 				else:
 					return "energy_out"
@@ -156,9 +168,9 @@ class AutoDocter():
 				self.status = 0
 				self.limit_times -= 1
 				self.times += 1
-				self.log(self.times)
+				print(self.times)
 			else:
-				time.sleep(5)
+				time.sleep(5)		
 
 	def close(self):
 		res_close, x, y = self.search_returnPoint(self.img_screen, CLOSE)
@@ -168,24 +180,27 @@ class AutoDocter():
 
 	def start(self):
 		self.log("-"*15+" start "+"-"*15)
-		self.init_config()
+		self.load_config()
 		self.init_device()
 		self.init_img()
 		
 		res = ""
-		self.log("start_loop")
+		print("start_loop")
 		while self.limit_times and not res:
+			if getattr(self, "exit", 0):
+				break
 			res = self.run_loop()
 			if res:
 				self.close()
 			if self.forever and res:
-				self.log("forever_wait...")
+				print("forever_wait...")
 				res = ""
 				time.sleep(self.forever_time*60)
 			time.sleep(1)
 			self.time_out += 1
 		self.log(res)
-		self.log(self.use_item)
+		self.log(self.total)
+		self.log("times = {}".format(self.times))
 		self.log("-"*15+" end "+"-"*15)
 
 current_path = os.path.abspath(__file__)
