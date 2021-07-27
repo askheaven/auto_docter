@@ -192,7 +192,7 @@ class AutoDocter():
 			res = self.run_loop()
 			if res:
 				self.close()
-			if self.forever and res:
+			if self.status == 0 and self.forever and res:
 				print("forever_wait...")
 				res = ""
 				time.sleep(self.forever_time*60)
